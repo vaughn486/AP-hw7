@@ -50,9 +50,10 @@ void print_date_time_header(FILE *output) {
  * To send the message to all clients, pass -1 for skip_index.
  */
 void broadcast_buffer(int skip_index, char *buf) {
+    size_t bytes_to_send = strlen(buf) + 1;
     for (int i = 0; i < MAX_CONNECTIONS; i++) {
         if (i != skip_index && client_sockets[i] != -1) {
-            if (send(client_sockets[i], buf, strlen(buf) + 1, 0) == -1) {
+            if (send(client_sockets[i], buf, bytes_to_send, 0) == -1) {
                 printf("%d\n", client_sockets[i]);
                 print_date_time_header(stderr);
                 fprintf(stderr,
@@ -192,13 +193,22 @@ int handle_server_socket() {
     }
 
     // Receive the user name from the client.
-    int bytes_recvd = recv(new_socket, inbuf, MAX_NAME_LEN + 1, 0);
+    int i = 0, bytes_recvd = recv(new_socket, inbuf, 1, 0);
+    if (bytes_recvd == 0) {
+        return EXIT_SUCCESS; // Client hung up prematurely.
+    }
+    while (inbuf[i] != '\0') {
+        i++;
+        if (i > MAX_NAME_LEN + 1) {
+            break;
+        }
+        bytes_recvd = recv(new_socket, inbuf + i, 1, 0);
+    }
+    
     if (bytes_recvd == -1) {
         print_date_time_header(stderr);
         fprintf(stderr, "Warning: Failed to receive user name. %s.\n",
                 strerror(errno));
-    } else if (bytes_recvd == 0) {
-        return EXIT_SUCCESS; // Client hung up prematurely.
     } else {
         print_date_time_header(stdout);
         printf("Associated user name '%s' with %s.\n", inbuf, connection_str);
@@ -319,7 +329,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    int opt = 0;
+    int opt = 1;
     // SO_REUSEADDR tells the kernel that even if this port is busy (in the
     // TIME_WAIT state), go ahead and reuse it anyway. If it is busy, but with
     // another state, you will still get an address already in use error. It is
