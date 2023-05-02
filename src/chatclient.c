@@ -102,28 +102,30 @@ int main(int argc, char **argv) {
 
 	//hardcoding username for now
 	//sprintf(username, "veronica");
-	
 	char username[MAX_NAME_LEN+1] = "";
-	int balance = 0;
-	printf("first check %ld", strlen(username));
+        char buffer[50];
+        int balance = 0;
+
         while (balance == 0) {
             printf("Please enter your username: ");
             fflush(stdout);
-            fgets(username, MAX_NAME_LEN+1, stdin);
-            //username[strcspn(username, "\n")] = 0;
-            //printf("max length is: %d\n", MAX_NAME_LEN);
-	    printf("check after assigned %ld", strlen(username));
-	    if (strlen(username) > MAX_NAME_LEN) {
+            if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+                fprintf(stderr, "Error: fgets() failed.\n");
+                exit(EXIT_FAILURE);
+            }
+            // Remove newline character from buffer
+            buffer[strcspn(buffer, "\n")] = 0; 
+            if (strlen(buffer) > MAX_NAME_LEN) {
                 printf("Sorry, limit your username to %d characters.\n", MAX_NAME_LEN);
-                username[0] = '\0';
+                strcpy(buffer, "");
                 balance = 0;
-		printf("lencgth check in if statement %ld", strlen(username));
-             }else{
-	    	balance =1;
+            } else {
+                // Copy buffer to username
+                strcpy(username, buffer);
+                balance = 1;
             }
         }
-	printf("Hello, %s. Let's try to connect to the server.\n", username);
-
+        printf("Hello, %s. Let's try to connect to the server.\n", username);
 
 /***************************************************/
 
