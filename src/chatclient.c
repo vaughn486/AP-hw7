@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
 	}
 
 
-
+/********************************************************/
 
 
 	//username prompting PART 2!!!!!
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
             printf("Please enter your username: ");
             fflush(stdout);
             fgets(username, MAX_NAME_LEN+1, stdin);
-            //username[strcspn(username, "\n")] = 0;
+            username[strcspn(username, "\n")] = 0;
             //printf("max length is: %d\n", MAX_NAME_LEN);
 	    printf("check after assigned %ld", strlen(username));
 	    if (strlen(username) > MAX_NAME_LEN) {
@@ -156,11 +156,14 @@ int main(int argc, char **argv) {
 
 	//for formatting of welcome message
 	printf("\n");
-    	printf("Received response from server: %s\n", inbuf);
+    	printf("%s\n", inbuf);
 	printf("\n\n");
 /******************************************************/
 
+	memset(inbuf, 0, BUFLEN + 1);
+        memset(outbuf, 0, MAX_MSG_LEN + 1);
 
+	printf("username: '%s'\n", username);
 
 	//sending username to server
 	sprintf(outbuf, "%s", username);
