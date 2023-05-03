@@ -31,30 +31,73 @@ int handle_stdin() {
                 exit(EXIT_FAILURE);
         }
 
-	//TODO: MAX MESSAGE THING
-
         //atm its keeping the \n
-	outbuf[strlen(outbuf)-1] = '\0';
-
-
-        if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
-                fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
-                return EXIT_FAILURE;
+	//outbuf[strlen(outbuf)-1] = '\0';
+	//checks if user inputs CTRL D
+        //end of file has not occured
+        if (feof(stdin) != 0){
+            exit(EXIT_FAILURE);
         }
 
+        //if there is no new line then the message is too long
+        //if there is a new line, then you know it fits
+        if (strchr(outbuf, '\n') != NULL){
+            	//TODO: removes new line
+		if (outbuf[strlen(outbuf)-1] == '\n') {
+        		outbuf[strlen(outbuf)-1] = '\0';
+    	    	}
+            	//if user inputs bye, terminates, else send
+         	if(strcmp(outbuf, "bye") == 0){
+                	printf("Goodbye.\n");
+			close(client_socket);
+                	exit(EXIT_SUCCESS);
 
-
-
-	//TODO: TYPE IN BYE COMMAND
-
-
+            	} else {
+                	if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
+                    		fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
+                    		return EXIT_FAILURE;
+                	}
+            	}
+        } else {
+            	printf("Sorry, limit your message to 1 line of at most %d characters.\n", MAX_MSG_LEN);
+            	// consume remaining characters until EOF or new line is encountered
+            	int c;
+            	while (c != EOF && c != '\n'){
+                	c = getchar();
+            	}
+        }
 	return EXIT_SUCCESS;
 }
 
 //recieves
 int handle_client_socket() {
-	printf("reached client socket handler\n");
-
+    	//stores data from server into inbuf
+    	int i = 0, bytes_recv = recv(client_socket, inbuf, 1, 0);
+    	while (inbuf[i] != '\0') {
+        	i++;
+        	if (i > MAX_NAME_LEN + 1) {
+            		break;
+        	}
+        	bytes_recv = recv(client_socket, inbuf + i, 1, 0);
+    	}
+    	if (bytes_recv < 0) {
+        	if (errno != EINTR) {
+            		fprintf(stderr,"Warning: Failed to receive incoming message.");
+            		exit(EXIT_FAILURE);
+        	}
+        //if bytes recieved is 0, connection failed
+    	} else if (bytes_recv == 0) {
+        	fprintf(stderr, "\nConnection to server has been lost.\n");
+        	close(client_socket);
+        	exit(EXIT_FAILURE);
+    	} else {
+        	if (strcmp(inbuf, "bye") == 0) {
+            		printf("\nServer initiated shutdown.\n");
+            		close(client_socket);
+            		exit(EXIT_SUCCESS);
+        	}
+        	printf("%s\n", inbuf);
+    	}
 	return EXIT_SUCCESS;
 }
 
@@ -98,7 +141,6 @@ int main(int argc, char **argv) {
         }
 
 	//check port number
-	//convert arg[2] to int -> atoi
 	int portnum = atoi(argv[2]);
 	if(portnum <1024 || portnum>65535){
 		fprintf(stderr, "Error: Invalid input '%s' received for port number.\n", argv[2]);
@@ -106,25 +148,13 @@ int main(int argc, char **argv) {
 		goto EXIT;
 	}
 
-
-
-
-
-	//username prompting PART 2!!!!!
-        /*      
-        printf("Enter your username: ");
-        strncpy(username, argv[3], strlen(argv[3]));
-        printf("username: '%s'\n", username);
-        */
-
-	//hardcoding username for now
-	//sprintf(username, "veronica");
+	//prompting user for username
 	char username[MAX_NAME_LEN+1] = "";
         char buffer[50];
         int balance = 0;
 
         while (balance == 0) {
-            printf("Please enter your username: ");
+            printf("Enter your username: ");
             fflush(stdout);
             if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
                 fprintf(stderr, "Error: fgets() failed.\n");
