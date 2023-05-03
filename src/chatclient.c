@@ -12,7 +12,6 @@
 #include "util.h"
 
 
-
 int client_socket = -1;
 char username[MAX_NAME_LEN + 1];
 char inbuf[BUFLEN + 1];
@@ -25,6 +24,9 @@ int retval = EXIT_SUCCESS;
 
 
 int handle_stdin() {
+
+	//clear outbuf before putting anything in
+	memset(outbuf, '\0', MAX_MSG_LEN + 1);
 
 	if (fgets(outbuf, sizeof(outbuf), stdin) == NULL) {
 
@@ -57,10 +59,14 @@ int handle_stdin() {
                 	exit(EXIT_SUCCESS);
 
             	} else {
-                	if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
-                    		fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
-				return EXIT_FAILURE;
-                	}
+			//if there is nothing in the outbuf (input was just a new line)
+			//then don't send to server
+			if(strlen(outbuf) != 0){
+				if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
+                                	fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
+                                	return EXIT_FAILURE;
+                        	}
+			}
             	}
 
 
@@ -75,36 +81,36 @@ int handle_stdin() {
 	return EXIT_SUCCESS;
 }
 
-//recieves
+//handles information recieved from server
 int handle_client_socket() {
-    	//stores data from server into inbuf
-    	int i = 0, bytes_recv = recv(client_socket, inbuf, 1, 0);
-    	while (inbuf[i] != '\0') {
-        	i++;
-        	if (i > MAX_NAME_LEN + 1) {
-            		break;
-        	}
-        	bytes_recv = recv(client_socket, inbuf + i, 1, 0);
-    	}
-    	if (bytes_recv < 0) {
-        	if (errno != EINTR) {
-            		fprintf(stderr,"Warning: Failed to receive incoming message.");
-            		return EXIT_FAILURE;
-        	}
-        //if bytes recieved is 0, connection failed
-    	} else if (bytes_recv == 0) {
-        	fprintf(stderr, "\nConnection to server has been lost.\n");
-        	return EXIT_FAILURE;
-    	} else {
-        	if (strcmp(inbuf, "bye") == 0) {
-            		printf("\nServer initiated shutdown.\n");
-            		return EXIT_SUCCESS;
-        	}
-        	printf("%s\n", inbuf);
-    	}
+
+	//clear inbuf b4 putting anything in
+	memset(inbuf, '\0', BUFLEN+1);
+
+	int bytes_recvd = recv(client_socket, inbuf, BUFLEN, 0);
+
+
+	if (bytes_recvd < 0 && errno != EINTR){
+                fprintf(stderr, "\nWarning: Failed to receive incoming message. %s.\n", strerror(errno));
+		return EXIT_SUCCESS;
+	}
+	if(bytes_recvd == 0){
+		fprintf(stderr, "Connection to server has been lost.\n");
+		return EXIT_FAILURE;
+	}
+
+        inbuf[bytes_recvd] = '\0';
+	
+	if (strcmp(inbuf, "bye") == 0) {
+                printf("Server initiated shutdown.\n");
+		close(client_socket);
+		exit(EXIT_SUCCESS);
+	} else{
+		printf("%s\n", inbuf);
+	}
+	
 	return EXIT_SUCCESS;
 }
-
 
 
 int main(int argc, char **argv) {
@@ -208,6 +214,10 @@ int main(int argc, char **argv) {
 	//for formatting of welcome message
 	printf("\n");
     	printf("%s\n\n", inbuf);
+
+	//clearing the inbuf
+	memset(inbuf, '\0', BUFLEN + 1);
+
 /******************************************************/
 
 
@@ -220,6 +230,9 @@ int main(int argc, char **argv) {
                 retval = EXIT_FAILURE;
                 goto EXIT;
         }
+
+	//clearing the outbuf
+	memset(outbuf, '\0', MAX_MSG_LEN + 1);
 
 
 /******************************************/
@@ -253,6 +266,7 @@ int main(int argc, char **argv) {
 		}	
 
 		if(FD_ISSET(client_socket, &sockset)){
+			printf("\n");
                         if (handle_client_socket() == EXIT_FAILURE) {
                                 retval = EXIT_FAILURE;
                                 goto EXIT;
@@ -274,9 +288,6 @@ int main(int argc, char **argv) {
 	
 
 /*******************************************/
-
-
-
 
 
 	goto EXIT;
