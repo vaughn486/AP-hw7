@@ -19,28 +19,45 @@ char inbuf[BUFLEN + 1];
 char outbuf[MAX_MSG_LEN + 1];
 
 
-/***********Veronica's testing space**************/
+int retval = EXIT_SUCCESS;
 
-
-
-
-/*************************************************/
-
+//phillip "everytime print to stdout, fflush"
 
 
 int handle_stdin() {
-    /* TODO */
-	return -1;
+
+	if (fgets(outbuf, sizeof(outbuf), stdin) == NULL) {
+                fprintf(stderr, "Error: fgets() failed.\n");
+                exit(EXIT_FAILURE);
+        }
+
+	//TODO: MAX MESSAGE THING
+
+        //atm its keeping the \n
+	outbuf[strlen(outbuf)-1] = '\0';
+
+
+        if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
+                fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
+                return EXIT_FAILURE;
+        }
+
+
+
+
+	//TODO: TYPE IN BYE COMMAND
+
+
+	return EXIT_SUCCESS;
 }
 
+//recieves
 int handle_client_socket() {
-    /* TODO */
-	return -1;
+	printf("reached client socket handler\n");
+
+	return EXIT_SUCCESS;
 }
 
-void printprompt(){
-	printf("[%s]: ", username);
-}
 
 
 int main(int argc, char **argv) {
@@ -50,7 +67,7 @@ int main(int argc, char **argv) {
 	}
         //code from class code client.c
         //int client_socket, bytes_recvd, ip_conversion, retval = EXIT_SUCCESS;
-        int  bytes_recvd, ip_conversion, retval = EXIT_SUCCESS;
+        int  bytes_recvd, ip_conversion;
         struct sockaddr_in server_addr;         //SERVER_ADDR
         socklen_t addrlen = sizeof(struct sockaddr_in);
         //char buf[BUFLEN];
@@ -90,7 +107,7 @@ int main(int argc, char **argv) {
 	}
 
 
-/********************************************************/
+
 
 
 	//username prompting PART 2!!!!!
@@ -102,28 +119,30 @@ int main(int argc, char **argv) {
 
 	//hardcoding username for now
 	//sprintf(username, "veronica");
-	
 	char username[MAX_NAME_LEN+1] = "";
-	int balance = 0;
-	printf("first check %ld", strlen(username));
+        char buffer[50];
+        int balance = 0;
+
         while (balance == 0) {
             printf("Please enter your username: ");
             fflush(stdout);
-            fgets(username, MAX_NAME_LEN+1, stdin);
-            username[strcspn(username, "\n")] = 0;
-            //printf("max length is: %d\n", MAX_NAME_LEN);
-	    printf("check after assigned %ld", strlen(username));
-	    if (strlen(username) > MAX_NAME_LEN) {
+            if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+                fprintf(stderr, "Error: fgets() failed.\n");
+                exit(EXIT_FAILURE);
+            }
+            // Remove newline character from buffer
+            buffer[strcspn(buffer, "\n")] = 0; 
+            if (strlen(buffer) > MAX_NAME_LEN) {
                 printf("Sorry, limit your username to %d characters.\n", MAX_NAME_LEN);
-                username[0] = '\0';
+                strcpy(buffer, "");
                 balance = 0;
-		printf("lencgth check in if statement %ld", strlen(username));
-             }else{
-	    	balance =1;
+            } else {
+                // Copy buffer to username
+                strcpy(username, buffer);
+                balance = 1;
             }
         }
-	printf("Hello, %s. Let's try to connect to the server.\n", username);
-
+        printf("Hello, %s. Let's try to connect to the server.\n", username);
 
 /***************************************************/
 
@@ -148,37 +167,77 @@ int main(int argc, char **argv) {
         	fprintf(stderr, "Error: Failed to receive message from server. %s.\n",	strerror(errno));
         	retval = EXIT_FAILURE;
         	goto EXIT;
-    	} else{
-		printf("bytes were received\n");
-	}
+    	}
 
     	inbuf[bytes_recvd] = '\0';
 
 	//for formatting of welcome message
 	printf("\n");
-    	printf("%s\n", inbuf);
-	printf("\n\n");
+    	printf("%s\n\n", inbuf);
 /******************************************************/
 
-	memset(inbuf, 0, BUFLEN + 1);
-        memset(outbuf, 0, MAX_MSG_LEN + 1);
 
-	printf("username: '%s'\n", username);
 
 	//sending username to server
 	sprintf(outbuf, "%s", username);
-	//sprintf(outbuf, "Sending message to server at [%s:%d].\n", inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
         outbuf[strlen(outbuf)] = '\0';
-        if (send(client_socket, outbuf, strlen(outbuf), 0) < 0) {
+        if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
                 fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
                 retval = EXIT_FAILURE;
                 goto EXIT;
         }
 
 
+/******************************************/
 
+//PART 4
 
+	printf("[%s]: ", username);
+	fflush(stdout);
 
+	fd_set sockset;
+
+	while(true){
+
+		//note: client_socket just refers to int, that is the file descriptor for where the information flow is
+		//max socket is our client socket
+		//int max_socket = client_socket;
+
+		//place sockets to be tested in bit set of type FD_SET
+                //              use FD_SET to set the sockets in here
+
+        	FD_ZERO(&sockset);      //clearing the sockset (making all of the bits = 0)
+        	FD_SET(STDIN_FILENO, &sockset);
+        	FD_SET(client_socket, &sockset);        //adding client_socket as a socket to watch
+		//printf("file descriptor of client_socket is: '%d'\n", client_socket);	
+	
+		if(select(client_socket + 1, &sockset, NULL, NULL, NULL) < 0){
+			//error
+			fprintf(stderr, "Error: select() failed. %s.\n", strerror(errno));
+			retval = EXIT_FAILURE;
+			goto EXIT;
+		}	
+		
+		if(FD_ISSET(STDIN_FILENO, &sockset)){
+			if (handle_stdin() == EXIT_FAILURE) {
+                		retval = EXIT_FAILURE;
+                		goto EXIT;
+            		}
+		}
+
+		if(FD_ISSET(client_socket, &sockset)){
+			if (handle_client_socket() == EXIT_FAILURE) {
+                                retval = EXIT_FAILURE;
+                                goto EXIT;
+                        }
+                }	
+		
+		printf("[%s]: ", username);
+        	fflush(stdout);
+	}
+	
+
+/*******************************************/
 
 
 
