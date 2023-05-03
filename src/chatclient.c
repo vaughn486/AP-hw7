@@ -30,7 +30,8 @@ int handle_stdin() {
 
 	if (fgets(outbuf, sizeof(outbuf), stdin) == NULL) {
 
-        	if (feof(stdin)){	//eof reached (ctrl d)
+		//eof reached (ctrl d)
+        	if (feof(stdin)){
             		printf("\n");
 			close(client_socket);
                         exit(EXIT_SUCCESS);
@@ -41,13 +42,14 @@ int handle_stdin() {
         }
 
         //checks for newline in user input
-        if (strchr(outbuf, '\n') != NULL){	//strchr searches for the 1st occurance of the \n
+	//strchr searches for the 1st occurance of the \n
+        if (strchr(outbuf, '\n') != NULL){
             	//removes new line
 		if (outbuf[strlen(outbuf)-1] == '\n') {
         		outbuf[strlen(outbuf)-1] = '\0';
     	    	}
 
-		//send the user's input
+		//sends the user's input
 		//if the user's input was "bye", terminate client
          	if(strcmp(outbuf, "bye") == 0){
                 	printf("Goodbye.\n");
@@ -62,6 +64,7 @@ int handle_stdin() {
 			//if there is nothing in the outbuf (input was just a new line)
 			//then don't send to server
 			if(strlen(outbuf) != 0){
+				//SENDS OUTBUF TO SERVER HERE!!!!!
 				if (send(client_socket, outbuf, strlen(outbuf)+1, 0) < 0) {
                                 	fprintf(stderr, "Error: Failed to send message to server. %s.\n", strerror(errno));
                                 	return EXIT_FAILURE;
@@ -70,7 +73,7 @@ int handle_stdin() {
             	}
 
 
-        } else {	//if no newline, user input did not fit into buffer, is too long
+        } else {	//if no \n was present, user input did not fit into outbuf, is too long
             	printf("Sorry, limit your message to 1 line of at most %d characters.\n", MAX_MSG_LEN);
             	// consume remaining characters until EOF or new line is encountered
             	int c;
@@ -78,7 +81,7 @@ int handle_stdin() {
                 	c = getchar();
             	}
         }
-	return EXIT_SUCCESS;
+	return EXIT_SUCCESS;	//continues program
 }
 
 //handles information recieved from server
@@ -87,29 +90,33 @@ int handle_client_socket() {
 	//clear inbuf b4 putting anything in
 	memset(inbuf, '\0', BUFLEN+1);
 
+	//puts information received from server in inbuf
 	int bytes_recvd = recv(client_socket, inbuf, BUFLEN, 0);
 
-
+	//error!
 	if (bytes_recvd < 0 && errno != EINTR){
                 fprintf(stderr, "\nWarning: Failed to receive incoming message. %s.\n", strerror(errno));
-		return EXIT_SUCCESS;
+		return EXIT_SUCCESS;	//continues program
 	}
+	//will occur if server is shutdown unexpectedly
 	if(bytes_recvd == 0){
 		fprintf(stderr, "Connection to server has been lost.\n");
 		return EXIT_FAILURE;
 	}
 
+	//null terminating the inbuf just in case
         inbuf[bytes_recvd] = '\0';
 	
+	//if server purposefully shut down
 	if (strcmp(inbuf, "bye") == 0) {
                 printf("Server initiated shutdown.\n");
 		close(client_socket);
 		exit(EXIT_SUCCESS);
-	} else{
+	} else{	//WILL PRINT MESSAGE FROM SERVER HERE!!!!!
 		printf("%s\n", inbuf);
 	}
 	
-	return EXIT_SUCCESS;
+	return EXIT_SUCCESS;	//continues program
 }
 
 
@@ -119,11 +126,9 @@ int main(int argc, char **argv) {
         	return EXIT_FAILURE;
 	}
         //code from class code client.c
-        //int client_socket, bytes_recvd, ip_conversion, retval = EXIT_SUCCESS;
         int  bytes_recvd, ip_conversion;
         struct sockaddr_in server_addr;         //SERVER_ADDR
         socklen_t addrlen = sizeof(struct sockaddr_in);
-        //char buf[BUFLEN];
         char *addr_str = argv[1];
 
 
@@ -150,7 +155,7 @@ int main(int argc, char **argv) {
                 goto EXIT;
         }
 
-	//check port number
+	//checking port number
 	int portnum = atoi(argv[2]);
 	if(portnum <1024 || portnum>65535){
 		fprintf(stderr, "Error: Invalid input '%s' received for port number.\n", argv[2]);
@@ -158,7 +163,10 @@ int main(int argc, char **argv) {
 		goto EXIT;
 	}
 
-	//prompting user for username
+/*********************************************************/
+
+	//getting username from user
+	
 	char username[MAX_NAME_LEN+1] = "";
         char buffer[50];
         int balance = 0;
@@ -202,7 +210,7 @@ int main(int argc, char **argv) {
 
 /****************************************************/
 	
-	//receiving welcome message (+connected users)
+	//receiving welcome message (+connected users message)
     	if ((bytes_recvd = recv(client_socket, inbuf, BUFLEN, 0)) < 0) {
         	fprintf(stderr, "Error: Failed to receive message from server. %s.\n",	strerror(errno));
         	retval = EXIT_FAILURE;
@@ -237,34 +245,33 @@ int main(int argc, char **argv) {
 
 /******************************************/
 
-//PART 4
+	//prompting user for input
 
 	printf("[%s]: ", username);
 	fflush(stdout);
 
+	//the set of all sockets
 	fd_set sockset;
 
+	//loop to send and recieve data from server
 	while(true){
 
-		//note: client_socket just refers to int, that is the file descriptor for where the information flow is
-		//max socket is our client socket
-		//int max_socket = client_socket;
 
-		//place sockets to be tested in bit set of type FD_SET
-                //              use FD_SET to set the sockets in here
 
-        	FD_ZERO(&sockset);      //clearing the sockset (making all of the bits = 0)
+		//clearing the sockset (making all of the bits = 0)
+        	FD_ZERO(&sockset);
+		//setting the sockets to be listened to
         	FD_SET(STDIN_FILENO, &sockset);
-        	FD_SET(client_socket, &sockset);        //adding client_socket as a socket to watch
-		//printf("file descriptor of client_socket is: '%d'\n", client_socket);	
-	
+        	FD_SET(client_socket, &sockset);
+
+		//listening for activity from sockets
 		if(select(client_socket + 1, &sockset, NULL, NULL, NULL) < 0){
-			//error
 			fprintf(stderr, "Error: select() failed. %s.\n", strerror(errno));
 			retval = EXIT_FAILURE;
 			goto EXIT;
 		}	
 
+		//if activity detected
 		if(FD_ISSET(client_socket, &sockset)){
 			printf("\n");
                         if (handle_client_socket() == EXIT_FAILURE) {
@@ -274,6 +281,7 @@ int main(int argc, char **argv) {
                 }
 
 
+		//if activity detected
 		if(FD_ISSET(STDIN_FILENO, &sockset)){
 			if (handle_stdin() == EXIT_FAILURE) {
                 		retval = EXIT_FAILURE;
@@ -286,9 +294,6 @@ int main(int argc, char **argv) {
 	
 	}
 	
-
-/*******************************************/
-
 
 	goto EXIT;
 
