@@ -25,6 +25,7 @@ int retval = EXIT_SUCCESS;
 
 int handle_stdin() {
 
+
 	//clear outbuf before putting anything in
 	memset(outbuf, '\0', MAX_MSG_LEN + 1);
 
@@ -101,7 +102,8 @@ int handle_client_socket() {
 	//will occur if server is shutdown unexpectedly
 	if(bytes_recvd == 0){
 		fprintf(stderr, "Connection to server has been lost.\n");
-		return EXIT_FAILURE;
+		close(client_socket);
+                exit(EXIT_SUCCESS);
 	}
 
 	//null terminating the inbuf just in case
@@ -158,7 +160,7 @@ int main(int argc, char **argv) {
 	//checking port number
 	int portnum = atoi(argv[2]);
 	if(portnum <1024 || portnum>65535){
-		fprintf(stderr, "Error: Invalid input '%s' received for port number.\n", argv[2]);
+		fprintf(stderr, "Error: Port must be in range [1024, 65535]\n");
 		retval = EXIT_FAILURE;
 		goto EXIT;
 	}
@@ -245,10 +247,11 @@ int main(int argc, char **argv) {
 
 /******************************************/
 
-	//prompting user for input
-
-	printf("[%s]: ", username);
-	fflush(stdout);
+	//only prompt user if input is from stdin
+	if(isatty(STDIN_FILENO)==1){
+		printf("[%s]: ", username);
+        	fflush(stdout);
+	}
 
 	//the set of all sockets
 	fd_set sockset;
@@ -289,8 +292,11 @@ int main(int argc, char **argv) {
             		}
 		}
 
-		printf("[%s]: ", username);
-		fflush(stdout);
+		if(isatty(STDIN_FILENO)==1){
+                	printf("[%s]: ", username);
+                	fflush(stdout);
+       		}
+
 	
 	}
 	
