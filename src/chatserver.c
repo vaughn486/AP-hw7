@@ -235,6 +235,7 @@ int handle_server_socket() {
  * broadcasts the client's message to all other clients on the system.
  */
 void handle_client_socket(int index) {
+    //printf("got into handle client socket\n");
     int port = 0;
     char ip[16];
 
@@ -255,7 +256,7 @@ void handle_client_socket(int index) {
         bytes_recvd = recv(client_sockets[index], inbuf, 1, 0);
     if (bytes_recvd == 0) {
         // The client disconnected.
-        disconnect_client(index, ip, port);
+	disconnect_client(index, ip, port);
         return;
     }
     while (inbuf[i] != '\0') {
