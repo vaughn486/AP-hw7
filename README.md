@@ -1,4 +1,4 @@
-# Homework 7
+# Homework 7 - Chat Client Using C
 
 In this homework, you will create a chat client that is able to communicate with a server.
 
